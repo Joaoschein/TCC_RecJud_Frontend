@@ -1,5 +1,5 @@
 import type { AppView, Usuario } from '../types'
-import { IconDashboard, IconDocument, IconUsers } from './Icons'
+import { IconChart, IconDashboard, IconDocument, IconUsers } from './Icons'
 
 type SidebarProps = {
   activeView: AppView
@@ -26,7 +26,7 @@ export function Sidebar({ activeView, onChangeView, onLogout, usuario }: Sidebar
           type="button"
         >
           <IconDashboard />
-          Dashboard
+          Inicio
         </button>
         <button
           className={`nav-item ${activeView === 'processos' ? 'nav-item-active' : ''}`}
@@ -43,6 +43,22 @@ export function Sidebar({ activeView, onChangeView, onLogout, usuario }: Sidebar
         >
           <IconUsers />
           Credores
+        </button>
+        <button
+          className={`nav-item ${activeView === 'documentos' ? 'nav-item-active' : ''}`}
+          onClick={() => onChangeView('documentos')}
+          type="button"
+        >
+          <IconDocument />
+          Documentos
+        </button>
+        <button
+          className={`nav-item ${activeView === 'relatorios' ? 'nav-item-active' : ''}`}
+          onClick={() => onChangeView('relatorios')}
+          type="button"
+        >
+          <IconChart />
+          Dashboard
         </button>
       </nav>
 

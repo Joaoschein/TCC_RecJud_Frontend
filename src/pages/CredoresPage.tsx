@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { CredorImportModal } from '../components/CredorImportModal'
 import { CredorModal } from '../components/CredorModal'
 import type { Credor, CredorForm, Processo } from '../types'
-import { IconPlus, IconSearch, IconUsers } from '../components/Icons'
+import { IconPlus, IconSearch, IconUpload, IconUsers } from '../components/Icons'
 import { formatDate, formatFullCurrency } from '../utils/processos'
 import {
   credorProcessoLabel,
@@ -17,6 +19,7 @@ type CredoresPageProps = {
   editingCredorId: string | null
   onDeleteCredor: (credor: Credor) => void
   onEditCredor: (credor: Credor) => void
+  onImportCredores: (credores: CredorForm[]) => Promise<number>
   onNewCredor: () => void
   onCredorChange: (credor: CredorForm) => void
   onSearchChange: (value: string) => void
@@ -35,6 +38,7 @@ export function CredoresPage({
   editingCredorId,
   onDeleteCredor,
   onEditCredor,
+  onImportCredores,
   onCredorChange,
   onNewCredor,
   onSearchChange,
@@ -46,11 +50,26 @@ export function CredoresPage({
   showCredorForm,
   statusMessage,
 }: CredoresPageProps) {
+  const [showImportModal, setShowImportModal] = useState(false)
   const totalCredores = credores.length
   const valorTotal = credores.reduce((sum, credor) => sum + credor.valor, 0)
   const habilitados = credores.filter((credor) => credor.status.toLowerCase().includes('habilitado')).length
   const pendentes = credores.filter((credor) => credor.status.toLowerCase().includes('pendente')).length
   const percentualHabilitado = totalCredores > 0 ? Math.round((habilitados / totalCredores) * 1000) / 10 : 0
+  const processoNomePorId = new Map(processos.map((processo) => [processo.id, processo.empresa]))
+  const processoNomePorNumero = new Map(processos.map((processo) => [processo.numeroProcesso, processo.empresa]))
+
+  function getProcessoNome(credor: Credor) {
+    if (credor.processoId && processoNomePorId.has(credor.processoId)) {
+      return processoNomePorId.get(credor.processoId)
+    }
+
+    if (credor.numeroProcesso && processoNomePorNumero.has(credor.numeroProcesso)) {
+      return processoNomePorNumero.get(credor.numeroProcesso)
+    }
+
+    return credor.processoNome ?? credorProcessoLabel(credor)
+  }
 
   return (
     <>
@@ -59,10 +78,16 @@ export function CredoresPage({
           <h1>Credores</h1>
           <p>Gerencie todos os credores dos processos</p>
         </div>
-        <button className="new-process-button" onClick={onNewCredor} type="button">
-          <IconPlus />
-          Novo Credor
-        </button>
+        <div className="creditor-header-actions">
+          <button className="tool-button" onClick={() => setShowImportModal(true)} type="button">
+            <IconUpload />
+            Importar XLSX
+          </button>
+          <button className="new-process-button" onClick={onNewCredor} type="button">
+            <IconPlus />
+            Novo Credor
+          </button>
+        </div>
       </header>
 
       <section className="creditor-metric-grid" aria-label="Resumo dos credores">
@@ -146,7 +171,7 @@ export function CredoresPage({
                       <strong>{credor.nome}</strong>
                     </td>
                     <td>{credor.documento}</td>
-                    <td>{credorProcessoLabel(credor)}</td>
+                    <td>{getProcessoNome(credor)}</td>
                     <td>
                       <span className={`type-pill ${credorTipoClass(tipo)}`}>{tipo}</span>
                     </td>
@@ -189,6 +214,15 @@ export function CredoresPage({
           processos={processos}
           saving={saving}
           statusMessage={statusMessage}
+        />
+      ) : null}
+
+      {showImportModal ? (
+        <CredorImportModal
+          onClose={() => setShowImportModal(false)}
+          onImport={onImportCredores}
+          processos={processos}
+          saving={saving}
         />
       ) : null}
     </>

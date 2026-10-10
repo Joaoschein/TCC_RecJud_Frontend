@@ -1,0 +1,252 @@
+﻿@media (max-width: 1100px) {
+  .dashboard-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .creditor-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .document-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-metric-grid,
+  .report-chart-grid,
+  .creditor-import-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .process-panel,
+  .quick-create {
+    width: 100%;
+  }
+
+  .process-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .process-form-wide {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .search-field {
+    grid-column: 1 / -1;
+  }
+
+  .process-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #e0e5ec;
+  }
+
+  .brand {
+    min-height: auto;
+  }
+
+  .nav-menu {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 12px;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 10px 8px;
+  }
+
+  .logout-button {
+    display: none;
+  }
+
+  .dashboard-main {
+    padding: 22px 16px;
+  }
+
+  .dashboard-header {
+    align-items: center;
+    margin-bottom: 22px;
+  }
+
+  .metric-grid,
+  .creditor-metric-grid,
+  .document-metric-grid,
+  .report-metric-grid,
+  .report-chart-grid,
+  .creditor-import-summary,
+  .process-form,
+  .process-form-wide,
+  .process-toolbar,
+  .creditor-toolbar,
+  .document-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .report-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .report-year-select,
+  .report-year-select select {
+    flex: 1 1 140px;
+  }
+
+  .process-detail-header {
+    flex-direction: column;
+  }
+
+  .process-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .process-meta {
+    width: 100%;
+    min-width: 0;
+    justify-items: start;
+    gap: 10px;
+  }
+
+  .all-process-card {
+    min-height: auto;
+    flex-direction: column;
+  }
+
+  .process-card-side {
+    width: 100%;
+    justify-items: start;
+    gap: 12px;
+  }
+
+  .modal-process-form {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .process-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .process-info-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .process-documents-panel {
+    padding: 18px;
+  }
+
+  .document-row {
+    align-items: flex-start;
+  }
+
+  .global-document-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .timeline-content {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .timeline-form-item {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-description-field {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .nav-menu {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.65rem;
+  }
+
+  .process-panel,
+  .quick-create {
+    padding: 18px;
+  }
+
+  .process-detail-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .report-chart-card {
+    padding: 18px;
+  }
+
+  .report-pie-wrap {
+    min-height: 330px;
+  }
+
+  .report-pie {
+    top: 90px;
+    width: 176px;
+  }
+
+  .report-pie-label {
+    font-size: 0.78rem;
+    white-space: normal;
+  }
+
+  .report-pie-label-1,
+  .report-pie-label-2,
+  .report-pie-label-3,
+  .report-pie-label-4,
+  .report-pie-label-5 {
+    max-width: 132px;
+  }
+
+  .report-pie-label-1 {
+    top: 34px;
+    right: 0;
+  }
+
+  .report-pie-label-2 {
+    top: 210px;
+    left: 0;
+  }
+
+  .report-pie-label-3 {
+    right: 28px;
+    bottom: 12px;
+  }
+
+  .report-pie-label-4 {
+    top: 210px;
+    right: 0;
+  }
+}

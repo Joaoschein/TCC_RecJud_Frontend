@@ -5,47 +5,84 @@ import { emptyCredor } from './data/credores'
 import { emptyProcesso } from './data/processos'
 import { CredoresPage } from './pages/CredoresPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { DocumentosPage } from './pages/DocumentosPage'
 import { LoginPage } from './pages/LoginPage'
+import { ProcessoDetailPage } from './pages/ProcessoDetailPage'
 import { ProcessosPage } from './pages/ProcessosPage'
-import type { AppView, AuthResponse, Credor, CredorForm, Processo, ProcessoForm, Usuario } from './types'
-import { toCredorPayload } from './utils/credores'
-import { getAbertura, getCredoresCount, toProcessoPayload } from './utils/processos'
-import './style.css'
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
-const TOKEN_KEY = 'rj-system.token'
-const USER_KEY = 'rj-system.user'
+import { RelatoriosPage } from './pages/RelatoriosPage'
+import type {
+  AppView,
+  Credor,
+  CredorForm,
+  DocumentoProcessoListItem,
+  EventoTimeline,
+  Processo,
+  ProcessoFieldErrors,
+  ProcessoForm,
+} from './types'
+import { useAuth } from './hooks/useAuth'
+import { useDocumentosProcesso } from './hooks/useDocumentosProcesso'
+import { atualizarCredor, criarCredor, importarCredores, listarCredores, removerCredor } from './services/credorService'
+import { baixarDocumento, listarDocumentosProcesso } from './services/documentoService'
+import {
+  atualizarProcesso,
+  atualizarTimelineProcesso,
+  criarProcesso,
+  listarProcessos,
+  removerProcesso,
+} from './services/processoService'
+import { getAbertura, getCredoresCount } from './utils/processos'
+import { ApiError } from './services/api'
+import './styles/index.css'
 
 export default function App() {
-  const [token, setToken] = useState<string>(() => localStorage.getItem(TOKEN_KEY) ?? '')
-  const [usuario, setUsuario] = useState<Usuario | null>(() => {
-    const rawUser = localStorage.getItem(USER_KEY)
-    return rawUser ? (JSON.parse(rawUser) as Usuario) : null
-  })
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
+  const {
+    authLoading,
+    email,
+    handleLogin,
+    handleLogout: handleAuthLogout,
+    senha,
+    setEmail,
+    setSenha,
+    setShowLogin,
+    setStatusMessage,
+    showLogin,
+    statusMessage,
+    token,
+    usuario,
+  } = useAuth()
   const [processo, setProcesso] = useState<ProcessoForm>(emptyProcesso)
   const [credor, setCredor] = useState<CredorForm>(emptyCredor)
   const [processos, setProcessos] = useState<Processo[]>([])
   const [credores, setCredores] = useState<Credor[]>([])
+  const [documentos, setDocumentos] = useState<DocumentoProcessoListItem[]>([])
   const [activeView, setActiveView] = useState<AppView>('dashboard')
   const [searchTerm, setSearchTerm] = useState('')
   const [credorSearchTerm, setCredorSearchTerm] = useState('')
+  const [documentoSearchTerm, setDocumentoSearchTerm] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showCredorForm, setShowCredorForm] = useState(false)
   const [editingProcessoId, setEditingProcessoId] = useState<string | null>(null)
   const [editingCredorId, setEditingCredorId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [selectedProcessoId, setSelectedProcessoId] = useState<string | null>(null)
+  const [loadingDocumentosGlobais, setLoadingDocumentosGlobais] = useState(false)
+  const [processoFieldErrors, setProcessoFieldErrors] = useState<ProcessoFieldErrors>({})
   const [saving, setSaving] = useState(false)
-  const [showLogin, setShowLogin] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('API pronta para conectar.')
 
-  const currentUser = usuario ?? {
-    email: 'demo@recjud.local',
-    id: 'demo',
-    nome: 'RecJud',
-    role: 'DEMO',
-  }
+  const {
+    clearDocumentosProcesso,
+    documentosProcesso,
+    handleDeleteDocumento,
+    handleDownloadDocumento,
+    handleUploadDocumento,
+    loadingDocumentos,
+    savingDocumento,
+  } = useDocumentosProcesso({
+    onAuthRequired: () => setShowLogin(true),
+    processoId: selectedProcessoId,
+    setStatusMessage,
+    token,
+  })
 
   const filteredProcessos = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -63,14 +100,19 @@ export default function App() {
 
   const totals = useMemo(() => {
     const totalCredores = processos.reduce((sum, item) => sum + getCredoresCount(item), 0)
-    const valorTotal = processos.reduce((sum, item) => sum + (item.valorTotal ?? 0), 0)
+    const passivoSujeito = processos.reduce((sum, item) => sum + (item.valorTotal ?? 0), 0)
 
     return {
       processosAtivos: processos.filter((item) => !item.status.toLowerCase().includes('encerrado')).length,
       totalCredores,
-      valorTotal,
+      valorTotal: passivoSujeito,
     }
   }, [processos])
+
+  const selectedProcesso = useMemo(
+    () => processos.find((item) => item.id === selectedProcessoId) ?? null,
+    [processos, selectedProcessoId],
+  )
 
   const filteredCredores = useMemo(() => {
     const normalizedSearch = credorSearchTerm.trim().toLowerCase()
@@ -86,6 +128,65 @@ export default function App() {
     )
   }, [credorSearchTerm, credores])
 
+  const filteredDocumentos = useMemo(() => {
+    const normalizedSearch = documentoSearchTerm.trim().toLowerCase()
+
+    if (!normalizedSearch) {
+      return documentos
+    }
+
+    return documentos.filter((documento) =>
+      [documento.nome, documento.nomeArquivo, documento.processoNome, documento.processoNumero, documento.tipo]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(normalizedSearch)),
+    )
+  }, [documentoSearchTerm, documentos])
+
+  function mapProcessoFieldErrors(errors: string[]) {
+    const allowedFields: Record<string, keyof ProcessoFieldErrors> = {
+      abertura: 'abertura',
+      administradorjudicial: 'administradorJudicial',
+      cnpj: 'cnpj',
+      comarca: 'comarca',
+      empresa: 'empresa',
+      juizresponsavel: 'juizResponsavel',
+      numeroprocesso: 'numeroProcesso',
+      status: 'status',
+      vara: 'vara',
+    }
+
+    return errors.reduce<ProcessoFieldErrors>((acc, error) => {
+      const separatorIndex = error.indexOf(':')
+
+      if (separatorIndex <= 0) {
+        return acc
+      }
+
+      const rawField = error.slice(0, separatorIndex).trim()
+      const rawFieldName = rawField.split('.').pop() ?? rawField
+      const field = allowedFields[rawFieldName.replace(/[^a-zA-Z]/g, '').toLowerCase()]
+      const message = error.slice(separatorIndex + 1).trim()
+
+      if (field) {
+        acc[field] = message || error
+      }
+
+      return acc
+    }, {})
+  }
+
+  function clearProcessoFieldError(field: keyof ProcessoFieldErrors) {
+    setProcessoFieldErrors((current) => {
+      if (!current[field]) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
   useEffect(() => {
     if (!token) {
       return
@@ -95,55 +196,26 @@ export default function App() {
     void carregarCredores(token)
   }, [token])
 
-  async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_URL}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init?.headers,
-      },
-    })
-
-    if (!response.ok) {
-      let message = 'Nao foi possivel completar a requisicao.'
-
-      try {
-        const body = (await response.json()) as { message?: string; errors?: string[] }
-        message = body.message ?? body.errors?.join(', ') ?? message
-      } catch {
-        message = response.statusText || message
-      }
-
-      throw new Error(message)
+  useEffect(() => {
+    if (!token || activeView !== 'documentos') {
+      return
     }
 
-    if (response.status === 204) {
-      return undefined as T
-    }
-
-    return (await response.json()) as T
-  }
+    void carregarDocumentosGlobais()
+  }, [activeView, processos, token])
 
   async function carregarProcessos(currentToken = token) {
     if (!currentToken) {
       return
     }
 
-    setLoading(true)
     try {
-      const lista = await request<Processo[]>('/api/processos', {
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-        },
-      })
+      const lista = await listarProcessos(currentToken)
       setProcessos(lista)
       setStatusMessage('Processos carregados com sucesso.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao listar processos.'
       setStatusMessage(message)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -153,39 +225,62 @@ export default function App() {
     }
 
     try {
-      const lista = await request<Credor[]>('/api/credores', {
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-        },
-      })
+      const lista = await listarCredores(currentToken)
       setCredores(lista)
     } catch {
       setCredores([])
     }
   }
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setLoading(true)
-    try {
-      const auth = await request<AuthResponse>('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, senha }),
-      })
+  async function carregarDocumentosGlobais() {
+    if (!token) {
+      return
+    }
 
-      localStorage.setItem(TOKEN_KEY, auth.accessToken)
-      localStorage.setItem(USER_KEY, JSON.stringify(auth.usuario))
-      setToken(auth.accessToken)
-      setUsuario(auth.usuario)
-      setShowLogin(false)
-      setStatusMessage(`Sessao iniciada para ${auth.usuario.nome}.`)
-      setEmail('')
-      setSenha('')
+    setLoadingDocumentosGlobais(true)
+    try {
+      const listas = await Promise.all(
+        processos.map(async (processoAtual) => {
+          const documentosProcessoAtual = await listarDocumentosProcesso(token, processoAtual.id)
+
+          return documentosProcessoAtual.map((documento) => ({
+            ...documento,
+            processoNome: processoAtual.empresa,
+            processoNumero: processoAtual.numeroProcesso,
+          }))
+        }),
+      )
+
+      setDocumentos(listas.flat())
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao fazer login.'
+      const message = error instanceof Error ? error.message : 'Erro ao listar documentos.'
+      setDocumentos([])
       setStatusMessage(message)
     } finally {
-      setLoading(false)
+      setLoadingDocumentosGlobais(false)
+    }
+  }
+
+  async function handleDownloadDocumentoGlobal(documento: DocumentoProcessoListItem) {
+    if (!token) {
+      setStatusMessage('Faca login para baixar documentos.')
+      setShowLogin(true)
+      return
+    }
+
+    try {
+      const blob = await baixarDocumento(token, documento.id)
+      const downloadUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = documento.nomeArquivo
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(downloadUrl)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao baixar documento.'
+      setStatusMessage(message)
     }
   }
 
@@ -198,27 +293,26 @@ export default function App() {
     }
 
     setSaving(true)
+    setProcessoFieldErrors({})
     try {
-      const payload = toProcessoPayload(processo)
       const saved = editingProcessoId
-        ? await request<Processo>(`/api/processos/${editingProcessoId}`, {
-            method: 'PUT',
-            body: JSON.stringify(payload),
-          })
-        : await request<Processo>('/api/processos', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
+        ? await atualizarProcesso(token, editingProcessoId, processo)
+        : await criarProcesso(token, processo)
 
       setProcessos((current) =>
         editingProcessoId ? current.map((item) => (item.id === editingProcessoId ? saved : item)) : [saved, ...current],
       )
       setProcesso(emptyProcesso)
       setEditingProcessoId(null)
+      setProcessoFieldErrors({})
       setShowCreateForm(false)
       setStatusMessage(`Processo ${saved.numeroProcesso} ${editingProcessoId ? 'atualizado' : 'cadastrado'}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao salvar processo.'
+      if (error instanceof ApiError || (typeof error === 'object' && error !== null && 'errors' in error)) {
+        const apiErrors = error instanceof ApiError ? error.errors : ((error as { errors?: string[] }).errors ?? [])
+        setProcessoFieldErrors(mapProcessoFieldErrors(apiErrors))
+      }
       setStatusMessage(message)
     } finally {
       setSaving(false)
@@ -234,13 +328,34 @@ export default function App() {
 
     setSaving(true)
     try {
-      await request<void>(`/api/processos/${id}`, {
-        method: 'DELETE',
-      })
+      await removerProcesso(token, id)
       setProcessos((current) => current.filter((item) => item.id !== id))
+      if (selectedProcessoId === id) {
+        setSelectedProcessoId(null)
+      }
       setStatusMessage('Processo removido com sucesso.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao remover processo.'
+      setStatusMessage(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleUpdateTimeline(timeline: EventoTimeline[]) {
+    if (!token || !selectedProcesso) {
+      setStatusMessage('Faca login para salvar a timeline no backend.')
+      setShowLogin(true)
+      return
+    }
+
+    setSaving(true)
+    try {
+      const saved = await atualizarTimelineProcesso(token, selectedProcesso.id, timeline)
+      setProcessos((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+      setStatusMessage('Timeline atualizada com sucesso.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao salvar timeline.'
       setStatusMessage(message)
     } finally {
       setSaving(false)
@@ -258,16 +373,9 @@ export default function App() {
     setSaving(true)
     try {
       const previousCredor = editingCredorId ? credores.find((item) => item.id === editingCredorId) : null
-      const payload = toCredorPayload(credor)
       const saved = editingCredorId
-        ? await request<Credor>(`/api/credores/${editingCredorId}`, {
-            method: 'PUT',
-            body: JSON.stringify(payload),
-          })
-        : await request<Credor>('/api/credores', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
+        ? await atualizarCredor(token, editingCredorId, credor)
+        : await criarCredor(token, credor)
       const processoSelecionado = processos.find((item) => item.id === credor.processoId)
       const savedWithProcesso = {
         ...saved,
@@ -319,6 +427,28 @@ export default function App() {
     }
   }
 
+  async function handleImportCredores(items: CredorForm[]) {
+    if (!token) {
+      setStatusMessage('Faca login para importar credores.')
+      setShowLogin(true)
+      return 0
+    }
+
+    setSaving(true)
+    try {
+      const response = await importarCredores(token, items)
+      await Promise.all([carregarCredores(token), carregarProcessos(token)])
+      setStatusMessage(`${response.totalImportados} credores importados com sucesso.`)
+      return response.totalImportados
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao importar credores.'
+      setStatusMessage(message)
+      throw error
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleDeleteCredor(item: Credor) {
     if (!token) {
       setStatusMessage('Faca login para remover credores no backend.')
@@ -328,9 +458,7 @@ export default function App() {
 
     setSaving(true)
     try {
-      await request<void>(`/api/credores/${item.id}`, {
-        method: 'DELETE',
-      })
+      await removerCredor(token, item.id)
       setCredores((current) => current.filter((credorAtual) => credorAtual.id !== item.id))
       setProcessos((current) =>
         current.map((processoAtual) =>
@@ -384,6 +512,12 @@ export default function App() {
     setShowCredorForm(true)
   }
 
+  function handleChangeView(view: AppView) {
+    setActiveView(view)
+    setSelectedProcessoId(null)
+    clearDocumentosProcesso()
+  }
+
   function handleCloseCredorModal() {
     setShowCredorForm(false)
     setEditingCredorId(null)
@@ -391,38 +525,46 @@ export default function App() {
   }
 
   function handleEditProcesso(item: Processo) {
+    setProcessoFieldErrors({})
     setProcesso({
       numeroProcesso: item.numeroProcesso,
       empresa: item.empresa,
       cnpj: item.cnpj ?? '',
       vara: item.vara,
+      juizResponsavel: item.juizResponsavel ?? '',
+      comarca: item.comarca ?? '',
+      administradorJudicial: item.administradorJudicial ?? '',
       abertura: getAbertura(item) ?? '',
-      valorTotal: item.valorTotal,
       status: item.status,
+      timeline: item.timeline ?? [],
     })
     setEditingProcessoId(item.id)
     setShowCreateForm(true)
+    setSelectedProcessoId(null)
     setActiveView('processos')
   }
 
   function handleNewProcesso() {
+    setProcessoFieldErrors({})
     setProcesso(emptyProcesso)
     setEditingProcessoId(null)
+    setSelectedProcessoId(null)
     setShowCreateForm((current) => !current)
   }
 
   function handleCloseProcessoModal() {
     setShowCreateForm(false)
     setEditingProcessoId(null)
+    setProcessoFieldErrors({})
   }
 
   function handleLogout() {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    setToken('')
-    setUsuario(null)
+    handleAuthLogout()
     setProcessos([])
     setCredores([])
+    setDocumentos([])
+    clearDocumentosProcesso()
+    setSelectedProcessoId(null)
     setShowCredorForm(false)
     setEditingCredorId(null)
     setShowLogin(true)
@@ -433,7 +575,7 @@ export default function App() {
     return (
       <LoginPage
         email={email}
-        loading={loading}
+        loading={authLoading}
         onEmailChange={setEmail}
         onLogin={handleLogin}
         onSenhaChange={setSenha}
@@ -445,28 +587,50 @@ export default function App() {
 
   return (
     <div className="dashboard-layout">
-      <Sidebar activeView={activeView} onChangeView={setActiveView} onLogout={handleLogout} usuario={usuario} />
+      <Sidebar activeView={activeView} onChangeView={handleChangeView} onLogout={handleLogout} usuario={usuario} />
 
       <main className="dashboard-main" id={activeView}>
         {activeView === 'dashboard' ? (
           <DashboardPage
-            currentUser={currentUser}
-            onViewAllProcessos={() => setActiveView('processos')}
+            onSelectProcesso={(item) => {
+              setSelectedProcessoId(item.id)
+              setActiveView('processos')
+            }}
+            onViewAllProcessos={() => handleChangeView('processos')}
             processos={processos}
             totals={totals}
-            usuario={usuario}
           />
         ) : null}
 
-        {activeView === 'processos' ? (
+        {activeView === 'processos' && selectedProcesso ? (
+          <ProcessoDetailPage
+            documentos={documentosProcesso}
+            loadingDocumentos={loadingDocumentos}
+            onBack={() => setSelectedProcessoId(null)}
+            onDeleteCredor={(item) => void handleDeleteCredor(item)}
+            onDeleteDocumento={(item) => void handleDeleteDocumento(item)}
+            onDownloadDocumento={(item) => void handleDownloadDocumento(item)}
+            onEditCredor={handleEditCredor}
+            onUpdateTimeline={(timeline) => void handleUpdateTimeline(timeline)}
+            onUploadDocumento={(item) => void handleUploadDocumento(item)}
+            processo={selectedProcesso}
+            saving={saving || savingDocumento}
+            statusMessage={statusMessage}
+          />
+        ) : null}
+
+        {activeView === 'processos' && !selectedProcesso ? (
           <ProcessosPage
             editingProcessoId={editingProcessoId}
+            fieldErrors={processoFieldErrors}
             filteredProcessos={filteredProcessos}
             onDeleteProcesso={(id) => void handleDeleteProcesso(id)}
             onEditProcesso={handleEditProcesso}
+            onFieldErrorClear={clearProcessoFieldError}
             onNewProcesso={handleNewProcesso}
             onProcessoChange={setProcesso}
             onSearchChange={setSearchTerm}
+            onSelectProcesso={(item) => setSelectedProcessoId(item.id)}
             onSubmitProcesso={handleSubmitProcesso}
             onToggleModal={(open) => (open ? setShowCreateForm(true) : handleCloseProcessoModal())}
             processo={processo}
@@ -485,6 +649,7 @@ export default function App() {
             onCredorChange={setCredor}
             onDeleteCredor={(item) => void handleDeleteCredor(item)}
             onEditCredor={handleEditCredor}
+            onImportCredores={handleImportCredores}
             onNewCredor={handleNewCredor}
             onSearchChange={setCredorSearchTerm}
             onSubmitCredor={handleSubmitCredor}
@@ -496,6 +661,22 @@ export default function App() {
             statusMessage={statusMessage}
           />
         ) : null}
+
+        {activeView === 'documentos' ? (
+          <DocumentosPage
+            documentos={filteredDocumentos}
+            loading={loadingDocumentosGlobais}
+            onDownloadDocumento={(item) => void handleDownloadDocumentoGlobal(item)}
+            onViewDocumento={(item) => {
+              setSelectedProcessoId(item.processoId)
+              setActiveView('processos')
+            }}
+            onSearchChange={setDocumentoSearchTerm}
+            searchTerm={documentoSearchTerm}
+          />
+        ) : null}
+
+        {activeView === 'relatorios' ? <RelatoriosPage credores={credores} processos={processos} /> : null}
       </main>
     </div>
   )

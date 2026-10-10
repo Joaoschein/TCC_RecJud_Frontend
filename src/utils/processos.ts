@@ -42,9 +42,12 @@ export function toProcessoPayload(processo: ProcessoForm) {
     empresa: processo.empresa,
     cnpj: processo.cnpj ?? '',
     vara: processo.vara,
+    juizResponsavel: processo.juizResponsavel ?? '',
+    comarca: processo.comarca ?? '',
+    administradorJudicial: processo.administradorJudicial ?? '',
     abertura: processo.abertura ?? processo.dataAbertura ?? '',
-    valorTotal: Number(processo.valorTotal ?? 0),
     status: processo.status,
+    timeline: processo.timeline ?? [],
   }
 }
 
@@ -60,4 +63,14 @@ export function statusClass(status: string) {
   }
 
   return 'status-active'
+}
+
+export function formatStatus(status: string) {
+  const labels: Record<string, string> = {
+    AGUARDANDO_APROVACAO: 'Aguardando aprovacao',
+    APROVADO: 'Aprovado',
+    EM_ANDAMENTO: 'Em andamento',
+  }
+
+  return labels[status] ?? status
 }

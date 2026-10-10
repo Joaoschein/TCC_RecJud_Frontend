@@ -1,0 +1,55 @@
+﻿.all-process-list {
+  display: grid;
+  gap: 16px;
+}
+
+.all-process-card {
+  display: flex;
+  min-height: 160px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  border: 1px solid #dde3eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 24px;
+}
+
+.all-process-card-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.all-process-card-clickable:hover,
+.all-process-card-clickable:focus-visible {
+  border-color: #9bbcff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.process-card-side {
+  display: grid;
+  justify-items: end;
+  gap: 70px;
+}
+
+.process-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.process-actions button {
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a2b40;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.process-actions button:last-child {
+  color: #b42318;
+}
+

@@ -1,17 +1,27 @@
 import type { FormEvent } from 'react'
-import type { Processo, ProcessoForm } from '../types'
+import type { Processo, ProcessoFieldErrors, ProcessoForm } from '../types'
 import { IconPlus, IconSearch } from '../components/Icons'
 import { ProcessoModal } from '../components/ProcessoModal'
-import { formatDate, formatFullCurrency, getAbertura, getCredoresCount, statusClass } from '../utils/processos'
+import {
+  formatDate,
+  formatFullCurrency,
+  formatStatus,
+  getAbertura,
+  getCredoresCount,
+  statusClass,
+} from '../utils/processos'
 
 type ProcessosPageProps = {
   editingProcessoId: string | null
+  fieldErrors: ProcessoFieldErrors
   filteredProcessos: Processo[]
   onDeleteProcesso: (id: string) => void
   onEditProcesso: (processo: Processo) => void
+  onFieldErrorClear: (field: keyof ProcessoFieldErrors) => void
   onNewProcesso: () => void
   onProcessoChange: (processo: ProcessoForm) => void
   onSearchChange: (value: string) => void
+  onSelectProcesso: (processo: Processo) => void
   onSubmitProcesso: (event: FormEvent<HTMLFormElement>) => void
   onToggleModal: (open: boolean) => void
   processo: ProcessoForm
@@ -21,14 +31,33 @@ type ProcessosPageProps = {
   statusMessage: string
 }
 
+function getProximaDataTimeline(processo: Processo) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const proximoEvento = (processo.timeline ?? [])
+    .filter((evento) => evento.status !== 'CUMPRIDO')
+    .filter((evento) => {
+      const eventDate = new Date(`${evento.data}T00:00:00`)
+
+      return !Number.isNaN(eventDate.getTime()) && eventDate >= today
+    })
+    .sort((first, second) => first.data.localeCompare(second.data))[0]
+
+  return proximoEvento ? `${proximoEvento.titulo} - ${formatDate(proximoEvento.data)}` : 'sem datas futuras'
+}
+
 export function ProcessosPage({
   editingProcessoId,
+  fieldErrors,
   filteredProcessos,
   onDeleteProcesso,
   onEditProcesso,
+  onFieldErrorClear,
   onNewProcesso,
   onProcessoChange,
   onSearchChange,
+  onSelectProcesso,
   onSubmitProcesso,
   onToggleModal,
   processo,
@@ -64,17 +93,29 @@ export function ProcessosPage({
 
       <section className="all-process-list" aria-label="Todos os processos cadastrados">
         {filteredProcessos.map((item) => (
-          <article className="all-process-card" key={item.id}>
+          <article
+            className="all-process-card all-process-card-clickable"
+            key={item.id}
+            onClick={() => onSelectProcesso(item)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                onSelectProcesso(item)
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
             <div className="all-process-content">
               <h2>{item.empresa}</h2>
               <p>{item.numeroProcesso}</p>
               <p>CNPJ: {item.cnpj ?? 'Nao informado'}</p>
               <div className="process-details">
                 <span>
-                  <strong>Fase:</strong> {item.vara}
+                  <strong>Proxima Data:</strong> {getProximaDataTimeline(item)}
                 </span>
                 <span>
-                  <strong>Valor:</strong> {formatFullCurrency(item.valorTotal)}
+                  <strong>Passivo Sujeito a Recuperacao Judicial:</strong> {formatFullCurrency(item.valorTotal)}
                 </span>
                 <span>
                   <strong>Credores:</strong> {getCredoresCount(item)}
@@ -85,12 +126,25 @@ export function ProcessosPage({
               </div>
             </div>
             <div className="process-card-side">
-              <span className={`status-pill ${statusClass(item.status)}`}>{item.status}</span>
+              <span className={`status-pill ${statusClass(item.status)}`}>{formatStatus(item.status)}</span>
               <div className="process-actions">
-                <button onClick={() => onEditProcesso(item)} type="button">
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onEditProcesso(item)
+                  }}
+                  type="button"
+                >
                   Editar
                 </button>
-                <button disabled={saving} onClick={() => onDeleteProcesso(item.id)} type="button">
+                <button
+                  disabled={saving}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onDeleteProcesso(item.id)
+                  }}
+                  type="button"
+                >
                   Excluir
                 </button>
               </div>
@@ -106,7 +160,9 @@ export function ProcessosPage({
       {showCreateForm ? (
         <ProcessoModal
           editingProcessoId={editingProcessoId}
+          fieldErrors={fieldErrors}
           onClose={() => onToggleModal(false)}
+          onFieldErrorClear={onFieldErrorClear}
           onProcessoChange={onProcessoChange}
           onSubmit={onSubmitProcesso}
           processo={processo}

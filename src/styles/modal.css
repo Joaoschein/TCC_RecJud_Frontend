@@ -1,0 +1,107 @@
+﻿.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 20, 42, 0.42);
+  padding: 24px;
+}
+
+.process-modal {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(8, 20, 42, 0.22);
+  padding: 24px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.modal-head h2 {
+  margin: 0;
+  color: #071326;
+  font-size: 1.25rem;
+}
+
+.modal-head span {
+  display: block;
+  margin-top: 4px;
+  color: #667790;
+  font-size: 0.86rem;
+}
+
+.modal-close {
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  color: #24364b;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+.modal-process-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.modal-process-form select:focus,
+.modal-process-form input:focus {
+  border-color: #2363ff;
+  box-shadow: 0 0 0 3px rgba(35, 99, 255, 0.12);
+  outline: none;
+}
+
+.modal-process-form .field-error input,
+.modal-process-form .field-error select {
+  border-color: #dc2626;
+  background: #fff7f7;
+}
+
+.modal-process-form .field-error input:focus,
+.modal-process-form .field-error select:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.13);
+}
+
+.field-message {
+  color: #b42318;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.modal-process-form label {
+  display: grid;
+  gap: 7px;
+  color: #24364b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.upload-document-form .file-field,
+.upload-document-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.upload-document-form input[type='file'] {
+  padding: 10px;
+}
+
+.modal-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
